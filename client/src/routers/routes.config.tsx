@@ -2,6 +2,8 @@ import type { RouteObject } from "react-router";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { PublicRoute } from "./PublicRoute";
 import { CreateBriefPage } from "../features/brief/pages/CreateBriefPage";
+import { LoginPage } from "../features/authentication/pages/LoginPage";
+import { DashboardPage } from "../features/brief/pages/DashboardPage";
 
 export const routesConfig: RouteObject[] = [
   {
@@ -13,7 +15,7 @@ export const routesConfig: RouteObject[] = [
       },
       {
         path: "/login",
-        element: <div>Login Page</div>,
+        element: <LoginPage />,
       },
     ],
   },
@@ -22,7 +24,7 @@ export const routesConfig: RouteObject[] = [
     children: [
       {
         path: "/dashboard",
-        element: <div>Dashboard Page</div>,
+        element: <DashboardPage />,
       },
     ],
   },
