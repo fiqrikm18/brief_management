@@ -26,11 +26,17 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+
+import { getApiErrorMessage } from "@/lib/api";
+import { createBrief } from "../api/brief.api";
+import type { Brief } from "../types/brief";
 
 export function CreateBriefPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [createdBrief, setCreatedBrief] = useState<Brief | null>(null);
 
   const form = useForm<CreateBriefFormValues>({
     resolver: zodResolver(createBriefSchema),
@@ -46,26 +52,25 @@ export function CreateBriefPage() {
 
   async function onSubmit(data: CreateBriefFormValues) {
     setIsSubmitting(true);
+    setErrorMessage(null);
+
     try {
-      const response = await fetch("/api/v1/briefs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
+      const brief = await createBrief(data);
 
-      if (!response.ok) {
-        throw new Error("Failed to submit brief");
-      }
-
+      setCreatedBrief(brief);
       setIsSuccess(true);
       form.reset();
     } catch (error) {
-      console.error("Submission error:", error);
+      setErrorMessage(getApiErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function resetForm() {
+    setIsSuccess(false);
+    setCreatedBrief(null);
+    setErrorMessage(null);
   }
 
   if (isSuccess) {
@@ -81,7 +86,27 @@ export function CreateBriefPage() {
               Thank you! Our AI is currently analyzing your project
               requirements. We will get back to you shortly.
             </p>
-            <Button onClick={() => setIsSuccess(false)} className="mt-4 w-full">
+
+            {createdBrief ? (
+              <dl className="w-full space-y-2 rounded-none border border-border p-4 text-left text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Brief ID</dt>
+                  <dd className="font-mono text-xs break-all">
+                    {createdBrief.id}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Pipeline status</dt>
+                  <dd>{createdBrief.pipelineStatus}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">AI status</dt>
+                  <dd>{createdBrief.aiResult?.aiStatus ?? "-"}</dd>
+                </div>
+              </dl>
+            ) : null}
+
+            <Button onClick={resetForm} className="mt-4 w-full">
               Submit Another Brief
             </Button>
           </CardContent>
@@ -105,6 +130,16 @@ export function CreateBriefPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {errorMessage ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
