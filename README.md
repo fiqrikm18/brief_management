@@ -1,91 +1,91 @@
 # Fugo Creative — Docker Setup
 
-Proyek ini terdiri dari dua aplikasi yang di-orchestrate dengan Docker Compose:
+This project consists of two applications orchestrated with Docker Compose:
 
-- **core** — Backend NestJS (API, port 3000)
-- **client** — Frontend Vite + React disajikan melalui nginx (port 80)
+- **core** — NestJS backend API (port 3000)
+- **client** — Vite + React frontend served via nginx (port 80)
 - **db** — PostgreSQL 16 (port 5432)
 
-## Cara menjalankan secara lokal
+## Running locally
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) (BuildKit diaktifkan)
+- [Docker](https://docs.docker.com/get-docker/) (BuildKit enabled)
 - [Docker Compose](https://docs.docker.com/compose/install/)
 
-### 1. Siapkan file environment
+### 1. Prepare environment files
 
-Salin file contoh dan isi nilai rahasia (JWT secret, API key, dll.):
+Copy the example files and fill in your secrets (JWT secret, API keys, etc.):
 
 ```bash
 cp core/.env.example core/.env
 cp client/.env.example client/.env
 ```
 
-### 2. Build dan jalankan semua layanan
+### 2. Build and start all services
 
 ```bash
-# Build semua image
+# Build all images
 docker compose build
 
-# Jalankan semua layanan di background
+# Start all services in detached mode
 docker compose up -d
 
-# Lihat log secara real-time
+# View logs in real time
 docker compose logs -f
 
-# Matikan dan hapus container
+# Stop and remove containers
 docker compose down
 
-# Build ulang dan restart
+# Rebuild and restart
 docker compose up -d --build
 ```
 
-### 3. Jalankan migrasi database
+### 3. Run database migrations
 
 ```bash
 docker compose exec core bun run db:push
 ```
 
-### 4. Jalankan tes
+### 4. Run tests
 
 ```bash
 docker compose exec core bun run test
 ```
 
-## URL layanan
+## Service URLs
 
-| Layanan | URL |
+| Service | URL |
 |---------|-----|
 | Client (frontend) | http://localhost |
 | API (backend) | http://localhost:3000/api |
 | PostgreSQL | localhost:5432 |
 
-## Daftar environment variable
+## Environment variables
 
 ### `core/.env`
 
-| Variabel | Deskripsi | Contoh |
-|----------|-----------|--------|
-| `NODE_ENV` | Mode runtime aplikasi | `development` |
-| `PORT` | Port yang digunakan core | `3000` |
-| `CORS_ORIGINS` | Origin yang diizinkan CORS | `http://localhost:5173` |
-| `DATABASE_URL` | Connection string PostgreSQL | `postgresql://postgres:postgres@db:5432/brief-manager` |
-| `JWT_SECRET` | Kunci rahasia untuk signing JWT | string acak panjang |
-| `OBSERVE_APP_KEY` | Kunci aplikasi NestJS Observe | — |
-| `OBSERVE_APP_SECRET` | Secret aplikasi NestJS Observe | — |
-| `OPENAI_API_KEY` | API key OpenAI | `sk-proj-...` |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | API key Google Generative AI | `AIzaSy...` |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NODE_ENV` | Application runtime mode | `development` |
+| `PORT` | Port used by core | `3000` |
+| `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:5173` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@db:5432/brief-manager` |
+| `JWT_SECRET` | Secret key for signing JWT | random long string |
+| `OBSERVE_APP_KEY` | NestJS Observe application key | — |
+| `OBSERVE_APP_SECRET` | NestJS Observe application secret | — |
+| `OPENAI_API_KEY` | OpenAI API key | `sk-proj-...` |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Generative AI API key | `AIzaSy...` |
 
 ### `client/.env`
 
-| Variabel | Deskripsi | Contoh |
-|----------|-----------|--------|
-| `VITE_API_URL` | Base URL API yang dipanggil frontend | `http://localhost:3000/api` |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_API_URL` | Base API URL called by frontend | `http://localhost:3000/api` |
 
-> Catatan: File `.env` sudah termasuk di `.gitignore` dan tidak dicommit. Gunakan `.env.example` sebagai template.
+> Note: `.env` files are listed in `.gitignore` and are not committed. Use `.env.example` as a template.
 
-## Arsitektur
+## Architecture
 
 ```
 ┌─────────┐      ┌─────────┐      ┌─────────┐
@@ -95,50 +95,50 @@ docker compose exec core bun run test
   nginx + Vite     NestJS API     PostgreSQL
 ```
 
-- **client** → `core`: semua request yang diawali `/api` di-proxy oleh nginx ke `http://core:3000/api` melalui jaringan Docker internal (`app-network`).
-- **core** → `db`: terhubung ke PostgreSQL melalui hostname `db` (service name di `docker-compose.yml`).
-- Semua layanan saling terhubung melalui jaringan bridge `app-network`.
+- **client → core**: all requests starting with `/api` are proxied by nginx to `http://core:3000/api` over the internal Docker network (`app-network`).
+- **core → db**: connects to PostgreSQL using hostname `db` (the service name in `docker-compose.yml`).
+- All services communicate over the bridge network `app-network`.
 
-## Skema database (Drizzle ORM, PostgreSQL)
+## Database schema (Drizzle ORM, PostgreSQL)
 
-Tabel utama dan relasinya:
+Main tables and relationships:
 
-| Tabel | Keterangan |
-|-------|------------|
-| `users` | Akun pengguna (email, name, password_hash) |
-| `briefs` | Klien brief (client_name, company_name, requirements, budget_range, target_timeline, pipeline_status) |
-| `ai_processing_results` | Hasil pemrosesan AI per brief (ai_status, ai_summary, service_category, priority, dll.) |
-| `ai_jobs` | Pekerjaan AI asynchronous (provider, status, attempts, max_attempts, error_message) |
-| `missing_info_items` | Informasi yang hilang yang diekstrak dari hasil AI (item_text) |
+| Table | Description |
+|-------|-------------|
+| `users` | User accounts (email, name, password_hash) |
+| `briefs` | Client briefs (client_name, company_name, requirements, budget_range, target_timeline, pipeline_status) |
+| `ai_processing_results` | AI processing result per brief (ai_status, ai_summary, service_category, priority, etc.) |
+| `ai_jobs` | Asynchronous AI jobs (provider, status, attempts, max_attempts, error_message) |
+| `missing_info_items` | Missing information extracted from AI results (item_text) |
 
-Relasi utama:
+Key relationships:
 - `briefs` → `ai_processing_results` (one-to-one, cascade delete)
 - `ai_processing_results` → `missing_info_items` (one-to-many, cascade delete)
 - `ai_jobs` → `briefs` (many-to-one, cascade delete)
 
-Index ditambahkan pada kolom yang sering difilter: `pipeline_status`, `created_at`, `brief_id`, `status`, `ai_status`, `priority`, `service_category`, `ai_result_id`.
+Indexes added on frequently filtered columns: `pipeline_status`, `created_at`, `brief_id`, `status`, `ai_status`, `priority`, `service_category`, `ai_result_id`.
 
-## Keputusan teknis dan trade-off
+## Technical decisions and trade-offs
 
-| Keputusan | Alasan | Trade-off |
-|-----------|--------|-----------|
-| **Bun** sebagai runtime & package manager | Install dan build lebih cepat dari npm, mendukung ESM native | Ecosystem sedikit lebih kecil dari Node.js/npm; beberapa alat masih mengasumsikan npm |
-| **Multi-stage Docker build** | Image akhir hanya berisi artifact build + dependency production, ukuran image lebih kecil | Build memerlukan lebih banyak langkah; dependency development tidak tersedia di image akhir |
-| **Nginx untuk client** | Serving static file Vite build dengan konfigurasi custom untuk proxy `/api` | Perlu maintain file `nginx.conf` terpisah; tidak ada HMR di production |
-| **PostgreSQL + Drizzle ORM** | Tipe data yang kuat, migrasi type-safe, support enum dan JSONB | Memerlukan PostgreSQL; tidak ada opsi database lain tanpa penulisan ulang schema |
-| **`depends_on` dengan condition `service_healthy`** | Memastikan `db` siap menerima koneksi sebelum `core` memulai | Menambah waktu startup; healthcheck perlu dikonfigurasi dengan benar |
-| **Env via `env_file` di compose** | Tidak menyalin `.env` ke dalam image build (keamanan) | Perlu menyiapkan `.env` di host sebelum `docker compose up` |
+| Decision | Reason | Trade-off |
+|----------|--------|-----------|
+| **Bun** as runtime & package manager | Faster install and build than npm, native ESM support | Smaller ecosystem than Node.js/npm; some tools assume npm |
+| **Multi-stage Docker build** | Final image contains only build artifacts + production dependencies, smaller image size | More build steps; development dependencies not available in final image |
+| **Nginx for client** | Serves Vite static build with custom config for `/api` proxy | Must maintain separate `nginx.conf`; no HMR in production |
+| **PostgreSQL + Drizzle ORM** | Strong typing, type-safe migrations, enum and JSONB support | Requires PostgreSQL; no other database without rewriting schema |
+| **`depends_on` with `service_healthy`** | Ensures `db` is ready before `core` starts | Increases startup time; healthcheck must be configured correctly |
+| **Env via `env_file` in compose** | `.env` is not copied into the build image (security) | Must prepare `.env` on host before `docker compose up` |
 
 ## AI usage log
 
-Tools yang digunakan dalam pembuatan setup ini:
+Tools used to create this setup:
 
-- **`read` / `glob` / `grep`** — mengeksplorasi struktur proyek (`package.json`, `vite.config.ts`, `drizzle.config.ts`, skema database) sebelum menulis Dockerfile dan compose.
-- **`write` / `edit`** — membuat `docker-compose.yml`, `Dockerfile`, `nginx.conf`, `.dockerignore`, `.env.example`, dan `README.md`.
-- **`bash`** — memvalidasi `docker compose config`, mencoba `docker compose build`, dan mengecek versi Docker/Compose.
+- **`read` / `glob` / `grep`** — explored the project structure (`package.json`, `vite.config.ts`, `drizzle.config.ts`, database schema) before writing the Dockerfile and compose file.
+- **`write` / `edit`** — created `docker-compose.yml`, `Dockerfile`, `nginx.conf`, `.dockerignore`, `.env.example`, and `README.md`.
+- **`bash`** — validated `docker compose config`, attempted `docker compose build`, and checked Docker/Compose versions.
 
-### Contoh koreksi / penolakan output
+### Examples of corrections / rejections of AI output
 
-1. **Ditolak: `COPY .env .env` di `core/Dockerfile`** — Awalnya saya menyalin `.env` ke dalam image pada stage runner. Build gagal karena `.env` sudah ada di `.dockerignore` sehingga tidak tersedia di konteks build. Saya menghapus baris tersebut dan mengandalkan `env_file` dari `docker-compose.yml` agar secret tidak bocok ke image.
+1. **Rejected: `COPY .env .env` in `core/Dockerfile`** — Initially I copied `.env` into the image during the runner stage. The build failed because `.env` is in `.dockerignore`, so it was not available in the build context. I removed that line and rely on `env_file` from `docker-compose.yml` instead, keeping secrets out of the image.
 
-2. **Dikonfigurasi ulang: `npm install` di `client/Dockerfile`** — Awalnya menggunakan `oven/bun:1-slim` dengan `npm install`, yang gagal karena image berbasis Bun tidak menyertakan binary `npm`. Saya mengganti dengan `bun install` agar konsisten dengan runtime yang digunakan, dan menambahkan `bun.lock` ke dalam salinan file dependency.
+2. **Changed: `npm install` in `client/Dockerfile`** — Initially I used `oven/bun:1-slim` with `npm install`, which failed because the Bun-based image does not include the `npm` binary. I switched to `bun install` for consistency with the Bun runtime, and added `bun.lock` to the copied dependency files.
