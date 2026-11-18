@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { UsersModule } from './modules/user/user.module.js';
 import { ConfigModule } from '@nestjs/config';
+import { BriefModule } from './modules/brief/brief.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -19,6 +20,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     DatabaseModule,
     AuthModule,
     UsersModule,
+    BriefModule,
   ],
   controllers: [AppController],
   providers: [AppService],
