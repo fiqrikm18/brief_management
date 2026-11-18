@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { DATABASE } from '../../../../database/database.provider.js';
 import type { Database } from '../../../../database/database.types.js';
 import { aiProcessingResults } from '../../../../database/schema/ai-result.schema.js';
@@ -8,6 +8,7 @@ import {
   NewBrief,
   BriefWithAiResult,
   Brief,
+  BriefListResult,
 } from '../../domain/entities/brief.entity.js';
 import { PipelineStatus } from '../../domain/enums.domain.js';
 import {
@@ -43,39 +44,65 @@ export class DrizzleBriefRepository implements IBriefRepository {
     });
   }
 
-  async findAll(filters?: BriefFilterParams): Promise<BriefWithAiResult[]> {
-    const briefConditions = [];
-    if (filters?.pipelineStatus) {
-      briefConditions.push(eq(briefs.pipelineStatus, filters.pipelineStatus));
+  async findAll(filters?: BriefFilterParams): Promise<BriefListResult> {
+    const {
+      page = 1,
+      limit = 10,
+      category,
+      priority,
+      aiStatus,
+      pipelineStatus,
+    } = filters ?? {};
+
+    const conditions = [];
+
+    if (pipelineStatus) {
+      conditions.push(eq(briefs.pipelineStatus, pipelineStatus));
     }
 
-    const results = await this.db.query.briefs.findMany({
-      where: briefConditions.length > 0 ? and(...briefConditions) : undefined,
-      orderBy: [desc(briefs.createdAt)],
-      with: {
-        aiResult: {
-          with: {
-            missingInfos: true,
-          },
-        },
-      },
-    });
+    if (category) {
+      conditions.push(eq(aiProcessingResults.serviceCategory, category));
+    }
 
-    return results.filter((row) => {
-      if (
-        filters?.category &&
-        row.aiResult?.serviceCategory !== filters.category
-      ) {
-        return false;
-      }
-      if (filters?.priority && row.aiResult?.priority !== filters.priority) {
-        return false;
-      }
-      if (filters?.aiStatus && row.aiResult?.aiStatus !== filters.aiStatus) {
-        return false;
-      }
-      return true;
-    });
+    if (priority) {
+      conditions.push(eq(aiProcessingResults.priority, priority));
+    }
+
+    if (aiStatus) {
+      conditions.push(eq(aiProcessingResults.aiStatus, aiStatus));
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(briefs)
+      .leftJoin(aiProcessingResults, eq(briefs.id, aiProcessingResults.briefId))
+      .where(where);
+
+    const rows = await this.db
+      .select()
+      .from(briefs)
+      .leftJoin(aiProcessingResults, eq(briefs.id, aiProcessingResults.briefId))
+      .where(where)
+      .orderBy(desc(briefs.createdAt))
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    const data: BriefWithAiResult[] = rows.map(({ briefs: brief, ai_processing_results: aiResult }) => ({
+      ...brief,
+      aiResult: aiResult
+        ? {
+            ...aiResult,
+            missingInfos: [],
+          }
+        : null,
+    }));
+
+    return {
+      data,
+      total: Number(total ?? 0),
+    };
   }
 
   async findById(id: string): Promise<BriefWithAiResult | null> {

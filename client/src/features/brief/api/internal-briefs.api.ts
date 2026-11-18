@@ -7,8 +7,17 @@ import type {
   RetryAiRequest,
 } from "../schemas/internal-briefs";
 
-export async function getBriefs(filters?: BriefFilters): Promise<Brief[]> {
-  const response = await api.get<Brief[]>("/internal/briefs", {
+export interface BriefsListResponse {
+  data: Brief[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+export async function getBriefs(
+  filters?: BriefFilters,
+): Promise<BriefsListResponse> {
+  const response = await api.get<BriefsListResponse>("/internal/briefs", {
     params: filters,
   });
 

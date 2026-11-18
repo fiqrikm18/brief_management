@@ -13,7 +13,6 @@ import type { BriefFilters } from "../schemas/internal-briefs";
 import { getApiErrorMessage } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -23,8 +22,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  MoreHorizontal, Loader2, AlertCircle, RefreshCw,
+  MoreHorizontal, Loader2, AlertCircle, RefreshCw, ChevronLeft, ChevronRight,
 } from "lucide-react";
+
+const CATEGORY_OPTIONS = [
+  "Branding",
+  "Website",
+  "Mobile App",
+  "AI Automation",
+  "Social Media",
+  "Lainnya",
+] as const;
+
+const PRIORITY_OPTIONS = ["High", "Medium", "Low"] as const;
+
+const AI_STATUS_OPTIONS = ["PENDING", "COMPLETED", "FAILED"] as const;
 
 const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
   "NEW",
@@ -33,6 +45,8 @@ const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
   "WON",
   "LOST",
 ];
+
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString(undefined, {
@@ -66,14 +80,20 @@ export function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedBrief, setSelectedBrief] = useState<Brief | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [filters, setFilters] = useState<BriefFilters>({});
+  const [filters, setFilters] = useState<BriefFilters>({ page: 1, limit: 10 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   const fetchBriefs = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
       const data = await getBriefs(filters);
-      setBriefs(data);
+      setBriefs(data.data);
+      setPage(data.page);
+      setPageSize(data.limit);
+      setTotal(data.total);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
     } finally {
@@ -131,7 +151,10 @@ export function DashboardPage() {
   };
 
   const clearFilters = () => {
-    setFilters({});
+    setFilters({ page: 1, limit: 10 });
+    setPage(1);
+    setPageSize(10);
+    setTotal(0);
   };
 
   useEffect(() => {
@@ -160,8 +183,7 @@ export function DashboardPage() {
 
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="flex items-center gap-2">
-              <Input
-                placeholder="Filter by category"
+              <select
                 value={filters.category ?? ""}
                 onChange={(e) =>
                   applyFilters({
@@ -169,11 +191,18 @@ export function DashboardPage() {
                       undefined) as BriefFilters["category"],
                   })
                 }
-              />
+                className="h-10 w-full min-w-0 border border-transparent border-b-input bg-transparent px-0 py-1 text-base transition-[color,border-color] outline-none focus-visible:border-b-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              >
+                <option value="">All categories</option>
+                {CATEGORY_OPTIONS.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-center gap-2">
-              <Input
-                placeholder="Filter by priority"
+              <select
                 value={filters.priority ?? ""}
                 onChange={(e) =>
                   applyFilters({
@@ -181,11 +210,18 @@ export function DashboardPage() {
                       undefined) as BriefFilters["priority"],
                   })
                 }
-              />
+                className="h-10 w-full min-w-0 border border-transparent border-b-input bg-transparent px-0 py-1 text-base transition-[color,border-color] outline-none focus-visible:border-b-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              >
+                <option value="">All priorities</option>
+                {PRIORITY_OPTIONS.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-center gap-2">
-              <Input
-                placeholder="Filter by AI status"
+              <select
                 value={filters.aiStatus ?? ""}
                 onChange={(e) =>
                   applyFilters({
@@ -193,11 +229,18 @@ export function DashboardPage() {
                       undefined) as BriefFilters["aiStatus"],
                   })
                 }
-              />
+                className="h-10 w-full min-w-0 border border-transparent border-b-input bg-transparent px-0 py-1 text-base transition-[color,border-color] outline-none focus-visible:border-b-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              >
+                <option value="">All AI statuses</option>
+                {AI_STATUS_OPTIONS.map((aiStatus) => (
+                  <option key={aiStatus} value={aiStatus}>
+                    {aiStatus}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-center gap-2">
-              <Input
-                placeholder="Filter by pipeline status"
+              <select
                 value={filters.pipelineStatus ?? ""}
                 onChange={(e) =>
                   applyFilters({
@@ -205,33 +248,62 @@ export function DashboardPage() {
                       undefined) as BriefFilters["pipelineStatus"],
                   })
                 }
-              />
+                className="h-10 w-full min-w-0 border border-transparent border-b-input bg-transparent px-0 py-1 text-base transition-[color,border-color] outline-none focus-visible:border-b-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              >
+                <option value="">All pipeline statuses</option>
+                {PIPELINE_STATUS_OPTIONS.map((pipelineStatus) => (
+                  <option key={pipelineStatus} value={pipelineStatus}>
+                    {pipelineStatus}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
           <div className="flex items-center justify-between">
-            <Button
-              onClick={fetchBriefs}
-              disabled={isLoading}
-              className="flex items-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh
-                </>
-              )}
-            </Button>
-            {Object.keys(filters).length > 0 && (
-              <Button variant="outline" onClick={clearFilters}>
-                Clear filters
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={fetchBriefs}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh
+                  </>
+                )}
               </Button>
-            )}
+              {Object.keys(filters).length > 0 && (
+                <Button variant="outline" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Page size</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const size = Number(e.target.value);
+                  setPageSize(size);
+                  setPage(1);
+                  setFilters({ ...filters, page: 1, limit: size });
+                }}
+                className="h-7 w-16 text-xs border border-input bg-transparent px-1 py-0 outline-none focus-visible:border-ring"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -288,6 +360,49 @@ export function DashboardPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-muted-foreground">
+              Showing{" "}
+              <span className="font-medium">
+                {briefs.length > 0 ? (page - 1) * pageSize + 1 : 0}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium">{Math.min(page * pageSize, total)}</span>{" "}
+              of {total} briefs
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const next = page - 1;
+                  setPage(next);
+                  setFilters({ ...filters, page: next });
+                }}
+                disabled={page <= 1 || isLoading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {page} / {Math.max(1, Math.ceil(total / pageSize))}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const next = page + 1;
+                  setPage(next);
+                  setFilters({ ...filters, page: next });
+                }}
+                disabled={
+                  page >= Math.max(1, Math.ceil(total / pageSize)) || isLoading
+                }
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
         <CardFooter className="flex items-center justify-between">

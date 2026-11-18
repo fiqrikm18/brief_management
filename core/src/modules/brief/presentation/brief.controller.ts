@@ -26,7 +26,7 @@ import {
 } from './dto/create-brief.dto.js';
 import { CreateBriefSwaggerDto } from './dto/create-brief.swagger.dto.js';
 import { ValidationPipe } from '../../../common/pipes/validation.pipe.js';
-import { BriefResponseDto } from './dto/brief.response.swagger.dto.js';
+import { BriefResponseDto, BriefListResponseDto } from './dto/brief.response.swagger.dto.js';
 import { BriefFilterQueryDto } from './dto/brief-filter.query.dto.js';
 import { UpdatePipelineStatusDto } from './dto/pipeline-status.swagger.dto.js';
 import { RetryAiDto } from './dto/pipeline-status.swagger.dto.js';
@@ -112,12 +112,28 @@ export class InternalBriefController {
   @ApiResponse({
     status: 200,
     description: 'List of briefs',
-    type: BriefResponseDto,
-    isArray: true,
+    type: BriefListResponseDto,
   })
   @ApiBearerAuth('access-token')
   async getBriefs(@Query() filters: BriefFilterQueryDto) {
-    return await this.briefService.getBriefs(filters);
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 10;
+
+    const { data, total } = await this.briefService.getBriefs({
+      category: filters.category,
+      priority: filters.priority,
+      aiStatus: filters.aiStatus,
+      pipelineStatus: filters.pipelineStatus,
+      page,
+      limit,
+    });
+
+    return {
+      data,
+      page,
+      limit,
+      total,
+    };
   }
 
   @Get(':id')

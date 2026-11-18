@@ -96,6 +96,8 @@ export class BriefService {
     priority?: string;
     aiStatus?: 'PENDING' | 'COMPLETED' | 'FAILED';
     pipelineStatus?: PipelineStatus;
+    page?: number;
+    limit?: number;
   }) {
     return await this.briefRepo.findAll(filters);
   }
