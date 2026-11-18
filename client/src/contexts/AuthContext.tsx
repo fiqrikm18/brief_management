@@ -6,6 +6,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { api } from "@/lib/api";
+
 interface User {
   id: string;
   name: string;
@@ -29,12 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function initializeAuth() {
       try {
-        const response = await fetch("/api/auth/me", {
-          credentials: "include",
-        });
+        const { data } = await api.get<{ user: User }>("/auth/me");
 
-        if (response.ok) {
-          const data = await response.json();
+        if (data?.user) {
           setUser(data.user);
         }
       } catch (error) {
@@ -48,29 +47,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const { data } = await api.post<{ user: User }>("/auth/login", {
+        email,
+        password,
+      });
 
-    if (!response.ok) {
+      setUser(data.user);
+    } catch {
       throw new Error("Invalid email or password");
     }
-
-    const data = await response.json();
-    setUser(data.user);
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await api.post("/auth/logout");
+    } catch {
+      // Session is cleared locally regardless of the server response.
     } finally {
       setUser(null);
     }
