@@ -27,7 +27,7 @@ export class BriefService {
     if (provider === 'openai') {
       return openai('gpt-4o-mini');
     }
-    return google('gemini-2.5-flash');
+    return google('gemini-3.8-flash');
   }
 
   private async executeAiAnalysis(

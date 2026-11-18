@@ -115,7 +115,7 @@ export class InternalBriefController {
     type: BriefResponseDto,
     isArray: true,
   })
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   async getBriefs(@Query() filters: BriefFilterQueryDto) {
     return await this.briefService.getBriefs(filters);
   }
@@ -130,7 +130,7 @@ export class InternalBriefController {
     type: BriefResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Brief not found' })
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   async getBriefDetail(@Param('id') id: string) {
     const brief = await this.briefService.getBriefDetail(id);
 
@@ -152,7 +152,7 @@ export class InternalBriefController {
     type: BriefResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Brief not found' })
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   async updatePipelineStatus(
     @Param('id') id: string,
     @Body() body: UpdatePipelineStatusDto,
@@ -174,7 +174,7 @@ export class InternalBriefController {
     type: BriefResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Brief not found' })
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   async retryAiProcessing(
     @Param('id') briefId: string,
     @Body() body: RetryAiDto,
