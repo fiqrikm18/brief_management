@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 import type { Brief, PipelineStatus } from "../types/brief";
 import {
@@ -133,6 +133,10 @@ export function DashboardPage() {
   const clearFilters = () => {
     setFilters({});
   };
+
+  useEffect(() => {
+    fetchBriefs();
+  }, [fetchBriefs]);
 
   return (
     <div className="space-y-6 p-4">

@@ -31,6 +31,22 @@ function setAuthHeader(token: string | null) {
   }
 }
 
+function setCookie(name: string, value: string, days = 7) {
+  const expires = new Date(Date.now() + days * 86400000).toUTCString();
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; expires=${expires}; SameSite=Lax${secure}`;
+}
+
+function getCookie(name: string): string | null {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function removeCookie(name: string) {
+  document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}
+
 function decodeJwtPayload(token: string): { exp?: number } | null {
   try {
     const payloadPart = token.split(".")[1];
@@ -61,13 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function initializeAuth() {
       try {
-        const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-        const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+        const storedToken = getCookie(TOKEN_STORAGE_KEY);
+        const storedUser = getCookie(USER_STORAGE_KEY);
 
         if (storedToken && storedUser) {
           if (isTokenExpired(storedToken)) {
-            localStorage.removeItem(TOKEN_STORAGE_KEY);
-            localStorage.removeItem(USER_STORAGE_KEY);
+            removeCookie(TOKEN_STORAGE_KEY);
+            removeCookie(USER_STORAGE_KEY);
             setAccessToken(null);
             setAuthHeader(null);
             setUser(null);
@@ -85,8 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error("Failed to restore session:", error);
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
-        localStorage.removeItem(USER_STORAGE_KEY);
+        removeCookie(TOKEN_STORAGE_KEY);
+        removeCookie(USER_STORAGE_KEY);
         setAccessToken(null);
         setAuthHeader(null);
         setUser(null);
@@ -105,8 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
 
-      localStorage.setItem(TOKEN_STORAGE_KEY, data.accessToken);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
+      setCookie(TOKEN_STORAGE_KEY, data.accessToken);
+      setCookie(USER_STORAGE_KEY, JSON.stringify(data.user));
       setAccessToken(data.accessToken);
       setAuthHeader(data.accessToken);
       setUser(data.user);
@@ -121,8 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Session is cleared locally regardless of the server response.
     } finally {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(USER_STORAGE_KEY);
+      removeCookie(TOKEN_STORAGE_KEY);
+      removeCookie(USER_STORAGE_KEY);
       setAccessToken(null);
       setAuthHeader(null);
       setUser(null);
