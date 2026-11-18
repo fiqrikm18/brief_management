@@ -197,4 +197,35 @@ export class InternalBriefController {
   ) {
     return await this.briefService.retryAiProcessing(briefId, body.aiProvider);
   }
+
+  @Get(':id/ai-job')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Get latest AI processing job status for a brief' })
+  @ApiParam({ name: 'id', description: 'Brief identifier', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'AI job status',
+  })
+  @ApiResponse({ status: 404, description: 'Brief not found' })
+  @ApiBearerAuth('access-token')
+  async getAIJob(@Param('id') briefId: string) {
+    const job = await this.briefService.getAIJobByBriefId(briefId);
+
+    if (!job) {
+      throw new NotFoundException('AI job not found');
+    }
+
+    return {
+      id: job.id,
+      briefId: job.briefId,
+      provider: job.provider,
+      status: job.status,
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts,
+      errorMessage: job.errorMessage,
+      createdAt: job.createdAt,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+    };
+  }
 }

@@ -29,6 +29,7 @@ import {
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { getApiErrorMessage } from "@/lib/api";
+import { RangeSlider } from "@/components/ui/range-slider";
 import { createBrief } from "../api/brief.api";
 import type { Brief } from "../types/brief";
 
@@ -37,6 +38,10 @@ export function CreateBriefPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdBrief, setCreatedBrief] = useState<Brief | null>(null);
+  const [budgetRange, setBudgetRange] = useState<[number, number]>([
+    0,
+    100000,
+  ]);
 
   const form = useForm<CreateBriefFormValues>({
     resolver: zodResolver(createBriefSchema),
@@ -45,21 +50,31 @@ export function CreateBriefPage() {
       clientEmail: "",
       companyName: "",
       requirements: "",
-      budgetRange: "",
+      budgetRange: "$0 - $100,000",
       targetTimeline: "",
     },
   });
+
+  const formatBudget = ([low, high]: [number, number]) =>
+    `$${low.toLocaleString()} - $${high.toLocaleString()}`;
 
   async function onSubmit(data: CreateBriefFormValues) {
     setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
-      const brief = await createBrief(data);
+      const brief = await createBrief({
+        ...data,
+        budgetRange: formatBudget(budgetRange),
+      });
 
       setCreatedBrief(brief);
       setIsSuccess(true);
-      form.reset();
+      form.reset({
+        ...data,
+        budgetRange: "$0 - $100,000",
+      });
+      setBudgetRange([0, 100000]);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
     } finally {
@@ -217,7 +232,13 @@ export function CreateBriefPage() {
                     <FormItem>
                       <FormLabel>Budget Range</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. $5,000 - $10,000" {...field} />
+                        <RangeSlider
+                          value={budgetRange}
+                          onChange={(next) => {
+                            setBudgetRange(next);
+                            field.onChange(formatBudget(next));
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

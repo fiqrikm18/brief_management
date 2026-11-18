@@ -42,6 +42,25 @@ export async function updatePipelineStatus(
   return response.data;
 }
 
+export interface AIJobStatus {
+  id: string;
+  briefId: string;
+  provider: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  attempts: number;
+  maxAttempts: number;
+  errorMessage: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export async function getAIJob(id: string): Promise<AIJobStatus> {
+  const response = await api.get<AIJobStatus>(`/internal/briefs/${id}/ai-job`);
+
+  return response.data;
+}
+
 export async function retryAiProcessing(
   briefId: string,
   values: RetryAiRequest,

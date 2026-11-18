@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 import type { Brief, PipelineStatus } from "../types/brief";
 import {
+  getAIJob,
   getBriefs,
   getBriefDetail,
   updatePipelineStatus,
@@ -84,6 +85,12 @@ export function DashboardPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
+  const [jobStatus, setJobStatus] = useState<{
+    status: string;
+    attempts: number;
+    errorMessage: string | null;
+  } | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchBriefs = useCallback(async () => {
     setIsLoading(true);
@@ -106,6 +113,12 @@ export function DashboardPage() {
     try {
       const brief = await getBriefDetail(id);
       setSelectedBrief(brief);
+      if (
+        brief.aiResult &&
+        brief.aiResult.aiStatus === "PENDING"
+      ) {
+        startPolling(id);
+      }
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
     } finally {
@@ -141,9 +154,38 @@ export function DashboardPage() {
       if (selectedBrief?.id === id) {
         setSelectedBrief(updated);
       }
+      startPolling(id);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
     }
+  };
+
+  const startPolling = (id: string) => {
+    stopPolling();
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const job = await getAIJob(id);
+        setJobStatus({
+          status: job.status,
+          attempts: job.attempts,
+          errorMessage: job.errorMessage,
+        });
+        if (job.status === "COMPLETED" || job.status === "FAILED") {
+          stopPolling();
+          await openDetail(id);
+        }
+      } catch {
+        stopPolling();
+      }
+    }, 2000);
+  };
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setJobStatus(null);
   };
 
   const applyFilters = (next: Partial<BriefFilters>) => {
@@ -160,6 +202,12 @@ export function DashboardPage() {
   useEffect(() => {
     fetchBriefs();
   }, [fetchBriefs]);
+
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
 
   return (
     <div className="space-y-6 p-4">
@@ -416,10 +464,13 @@ export function DashboardPage() {
         <>
           <div
             className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-            onClick={() => setSelectedBrief(null)}
+            onClick={() => {
+              stopPolling();
+              setSelectedBrief(null);
+            }}
           />
           <div
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg max-h-[90vh] -translate-x-1/2 -translate-y-1/2 bg-card border border-border rounded-xl shadow-xl p-6 flex flex-col gap-4 overflow-y-auto"
+            className="fixed left-1/2 top-1/2 z-50 w-full max-w-3xl max-h-[90vh] -translate-x-1/2 -translate-y-1/2 bg-card border border-border rounded-xl shadow-xl p-6 flex flex-col gap-4 overflow-y-auto"
             role="dialog"
             aria-modal="true"
             aria-labelledby="brief-detail-title"
@@ -432,11 +483,29 @@ export function DashboardPage() {
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => setSelectedBrief(null)}
+                onClick={() => {
+                  stopPolling();
+                  setSelectedBrief(null);
+                }}
               >
                 ✕
               </Button>
             </div>
+
+            {jobStatus && (
+              <div className="flex items-center gap-2 mb-2 p-3 rounded-lg bg-muted/50 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>
+                  AI processing: {jobStatus.status.toLowerCase()} (
+                  attempt {jobStatus.attempts})
+                  {jobStatus.errorMessage && (
+                    <>
+                      — {jobStatus.errorMessage}
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
 
             {errorMessage ? (
               <div
@@ -543,6 +612,26 @@ export function DashboardPage() {
                     {selectedBrief.aiResult.priority ?? "—"}
                   </span>
                 </div>
+                {selectedBrief.aiResult.priorityReason && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Priority reason
+                    </p>
+                    <p className="text-sm">
+                      {selectedBrief.aiResult.priorityReason}
+                    </p>
+                  </div>
+                )}
+                {selectedBrief.aiResult.aiErrorMessage && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      AI error message
+                    </p>
+                    <p className="text-sm text-destructive">
+                      {selectedBrief.aiResult.aiErrorMessage}
+                    </p>
+                  </div>
+                )}
                 <Button
                   onClick={() => handleRetryAi(selectedBrief.id)}
                   disabled={

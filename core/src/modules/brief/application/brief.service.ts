@@ -1,7 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { generateObject } from 'ai';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
+
 import {
   BRIEF_REPOSITORY,
   type IBriefRepository,
@@ -10,7 +8,10 @@ import {
   AI_RESULT_REPOSITORY,
   type IAiResultRepository,
 } from '../domain/repositories/ai-result.repository.js';
-import { briefAiAnalysisSchema } from './schemas/ai-result.schema.js';
+import {
+  AI_JOB_REPOSITORY,
+  type IAIJobRepository,
+} from '../domain/repositories/ai-job.repository.js';
 import { NewBrief } from '../domain/entities/brief.entity.js';
 import { PipelineStatus } from '../domain/enums.domain.js';
 
@@ -21,72 +22,23 @@ export class BriefService {
     private readonly briefRepo: IBriefRepository,
     @Inject(AI_RESULT_REPOSITORY)
     private readonly aiRepo: IAiResultRepository,
+    @Inject(AI_JOB_REPOSITORY)
+    private readonly jobRepo: IAIJobRepository,
   ) {}
-
-  private getAiModel(provider: 'google' | 'openai' = 'google') {
-    if (provider === 'openai') {
-      return openai('gpt-4o-mini');
-    }
-    return google('gemini-3.8-flash');
-  }
-
-  private async executeAiAnalysis(
-    briefId: string,
-    requirements: string,
-    provider: 'google' | 'openai' = 'google',
-  ) {
-    try {
-      await this.aiRepo.markPending(briefId);
-
-      const prompt = `Analisis brief proyek berikut secara profesional untuk agensi digital:
-      "${requirements}"`;
-
-      const { object } = await generateObject({
-        model: this.getAiModel(provider),
-        schema: briefAiAnalysisSchema,
-        prompt: prompt,
-      });
-
-      await this.aiRepo.saveSuccess({
-        briefId,
-        aiSummary: object.summary,
-        serviceCategory: object.serviceCategory,
-        priority: object.priority,
-        priorityReason: object.priorityReason,
-        missingInfos: object.missingInfo,
-      });
-    } catch (error: any) {
-      console.error(`AI Processing Failed for brief ${briefId}:`, error);
-      await this.aiRepo.markFailed(
-        briefId,
-        error.message || 'Unknown AI processing error',
-      );
-    }
-  }
 
   async createBrief(
     data: NewBrief,
     aiProvider: 'google' | 'openai' = 'google',
-    isAsync: boolean = true,
   ) {
     const briefWithAi = await this.briefRepo.createWithPendingAi(data);
 
-    if (isAsync) {
-      this.executeAiAnalysis(
-        briefWithAi.id,
-        data.requirements,
-        aiProvider,
-      ).catch((err) => {
-        console.error('Background AI execution error:', err);
-      });
-    } else {
-      await this.executeAiAnalysis(
-        briefWithAi.id,
-        data.requirements,
-        aiProvider,
-      );
-      return await this.briefRepo.findById(briefWithAi.id);
-    }
+    // Enqueue AI analysis to the background queue instead of running inline.
+    // This keeps the create brief request fast and lets the queue worker
+    // process LLM calls sequentially with retries.
+    await this.jobRepo.enqueue({
+      briefId: briefWithAi.id,
+      provider: aiProvider,
+    });
 
     return briefWithAi;
   }
@@ -119,8 +71,16 @@ export class BriefService {
       throw new Error(`Brief with ID ${briefId} not found.`);
     }
 
-    await this.executeAiAnalysis(briefId, brief.requirements, aiProvider);
+    // Re-enqueue AI analysis for retry.
+    await this.jobRepo.enqueue({
+      briefId,
+      provider: aiProvider,
+    });
 
     return await this.briefRepo.findById(briefId);
+  }
+
+  async getAIJobByBriefId(briefId: string) {
+    return await this.jobRepo.findByBriefId(briefId);
   }
 }
