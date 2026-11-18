@@ -1,18 +1,19 @@
 import type { RouteObject } from "react-router";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { PublicRoute } from "./PublicRoute";
+import { CreateBriefPage } from "../features/brief/pages/CreateBriefPage";
 
 export const routesConfig: RouteObject[] = [
   {
     element: <PublicRoute />,
     children: [
       {
-        path: "/login",
-        element: <div>Login Page</div>,
+        path: "/",
+        element: <CreateBriefPage />,
       },
       {
-        path: "/register",
-        element: <div>Register Page</div>,
+        path: "/login",
+        element: <div>Login Page</div>,
       },
     ],
   },

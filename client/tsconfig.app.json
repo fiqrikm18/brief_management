@@ -10,6 +10,11 @@
     "types": [
       "vite/client"
     ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
     /* Bundler mode */
@@ -23,15 +28,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "compilerOptions": {
-      "baseUrl": ".",
-      "paths": {
-        "@/*": [
-          "./src/*"
-        ]
-      }
-    }
+    "noFallthroughCasesInSwitch": true
   },
   "include": [
     "src"
