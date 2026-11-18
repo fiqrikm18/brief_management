@@ -58,22 +58,41 @@ Notes:
 
 - `Output` is exported at runtime by `ai@7.0.176` (`output_exports as Output`) with members `array`, `choice`, `json`, `object`, `text`. `Output.object({ schema })` accepts the project's Zod v4 schema and preserves the `.describe()` metadata as JSON Schema descriptions.
 - `GenerateTextResult.output` is typed `PromiseLike<InferCompleteOutput<OUTPUT>>`, so it must be awaited separately from the `generateText` call.
-- The error type changes from `NoObjectGeneratedError` to `NoOutputGeneratedError`. Both carry `.message`, so the existing `catch` block needs no change.
+- **Verified empirically:** `Output.object` is implemented as a native `responseFormat: { type: 'json', schema }` request — *not* as a forced tool call. The AI SDK converts the Zod schema to JSON Schema, sends it to the provider, then parses the model's text response and validates it against the Zod schema.
+- **Verified empirically:** a parse/validation failure throws `NoObjectGeneratedError` — the *same* class `generateObject` threw, not `NoOutputGeneratedError`. Its `.message` ("No object generated: could not parse the response.") and `.text`/`.cause` are unchanged, so the existing `catch` block needs no change.
+- **Verified empirically:** a plain `Error` thrown by a provider is **not** retried by the SDK (only retryable `APICallError`s are). Each provider attempt therefore results in exactly one model call.
 
-### 2. `AiModelFactory` (new, injectable)
+### 2. `AiProviderRegistry` (new, injectable)
 
-New file `src/modules/brief/infrastructure/ai/ai-model.factory.ts`.
+New file `src/modules/brief/infrastructure/ai/ai-provider.registry.ts`.
 
-Responsibilities — the only place that knows how to build a model and whether a provider is usable:
+The single place that knows about AI providers — model construction, credential state, and ordering. (Refinement from the approved design, which called this an `AiModelFactory` with an `isUsable` boolean: a boolean cannot carry the reason a provider was skipped, and §3 requires that reason in the failure message. The registry name reflects the wider responsibility.)
 
-- `create(provider: AiProvider): LanguageModelV4` — returns `google('gemini-3.8-flash')` or `openai('gpt-4o-mini')`.
-- `isUsable(provider: AiProvider): boolean` — credential check (see §4).
+API:
+
+```ts
+export interface ProviderCredentialStatus {
+  usable: boolean;
+  envVar: string;
+  reason?: string; // e.g. "OPENAI_API_KEY is missing" / "OPENAI_API_KEY looks like a placeholder"
+}
+
+export class AiProviderRegistry {
+  create(provider: AiProvider): LanguageModelV4;
+  credentialStatus(provider: AiProvider): ProviderCredentialStatus;
+  chain(primary: AiProvider): AiProvider[];
+}
+```
+
+- `create` returns `google('gemini-3.8-flash')` or `openai('gpt-4o-mini')`.
+- `credentialStatus` implements the §4 rules and names the offending env var.
+- `chain` returns `[primary, ...configured.filter(p => p !== primary)]` (§3).
 
 Verified against the installed packages: `@ai-sdk/google@4.0.122` and `@ai-sdk/openai@4.0.121` both expose a callable provider returning `LanguageModelV4`. `openai(modelId)` targets the Responses API by default; `gpt-4o-mini` is accepted there.
 
 `AiProvider` (`'google' | 'openai'`) moves to `src/modules/brief/domain/enums.domain.ts`, alongside the existing `PipelineStatus`, and is consumed by the service and by `RetryAiDto`. The Swagger DTO keeps its literal `enum: ['google', 'openai']` for schema generation.
 
-Extracting the factory is what makes the fallback chain testable: `BriefService` depends on an injected factory, so a test can substitute models that throw or succeed on demand.
+Extracting the registry is what makes the fallback chain testable: `BriefService` depends on an injected registry, so a test can substitute models that throw or succeed on demand and control the chain without touching the environment.
 
 ### 3. Provider chain
 
@@ -89,7 +108,7 @@ The `aiProvider` parameter (from `RetryAiDto.aiProvider`, or the `google` defaul
 
 Per provider, in order:
 
-1. If `isUsable(provider)` is false → log a warning naming the missing/placeholder credential and **skip** (not counted as a failure).
+1. If `credentialStatus(provider).usable` is false → log a warning with `reason` and **skip** (not counted as a failure).
 2. Otherwise attempt `generateText`.
 3. On success → `aiRepo.saveSuccess(...)` with the parsed analysis and return.
 4. On failure → record `provider: message` and continue to the next provider.
@@ -120,7 +139,7 @@ Once a real OpenAI key is supplied, no code change is needed — the provider be
 
 New file `src/modules/brief/application/brief.service.spec.ts` (Vitest, `globals: true` per `vitest.config.ts`).
 
-The test injects a fake `AiModelFactory` whose `create()` returns a fake `LanguageModelV4`. The fake's `doGenerate` inspects the call options to determine what the AI SDK asked for (text content vs. tool call) and returns content matching that shape, so the test exercises the real `generateText` + `Output.object` pipeline rather than stubbing it out.
+The test injects a fake `AiProviderRegistry` whose `create()` returns a fake `LanguageModelV4`. The fake's `doGenerate` returns a text content part containing the JSON payload, which is exactly what the AI SDK expects for a native `responseFormat: { type: 'json' }` request — so the test exercises the real `generateText` + `Output.object` pipeline rather than stubbing it out.
 
 Cases:
 
