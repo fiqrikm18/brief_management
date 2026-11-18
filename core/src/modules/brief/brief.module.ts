@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
+
 import { BriefService } from './application/brief.service.js';
 import { DrizzleBriefRepository } from './infrastructure/repositories/drizzle-brief.repository.js';
 import { DrizzleAiResultRepository } from './infrastructure/repositories/drizzle-ai-result.repository.js';
@@ -10,6 +13,18 @@ import {
 } from './presentation/brief.controller.js';
 
 @Module({
+  imports: [
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('JWT_SECRET'),
+
+        signOptions: {
+          expiresIn: '15m',
+        },
+      }),
+    }),
+  ],
   providers: [
     BriefService,
     {
