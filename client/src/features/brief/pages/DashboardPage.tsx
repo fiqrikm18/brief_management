@@ -23,7 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  MoreHorizontal, Loader2, AlertCircle, RefreshCw, ArrowLeft,
+  MoreHorizontal, Loader2, AlertCircle, RefreshCw,
 } from "lucide-react";
 
 const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
@@ -294,19 +294,31 @@ export function DashboardPage() {
       </Card>
 
       {selectedBrief && (
-        <Card className="max-w-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-bold">Brief detail</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedBrief(null)}
-            >
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Back
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedBrief(null)}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg max-h-[90vh] -translate-x-1/2 -translate-y-1/2 bg-card border border-border rounded-xl shadow-xl p-6 flex flex-col gap-4 overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="brief-detail-title"
+          >
+            <div className="flex flex-row items-center justify-between">
+              <h2 id="brief-detail-title" className="text-lg font-bold">
+                Brief detail
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setSelectedBrief(null)}
+              >
+                ✕
+              </Button>
+            </div>
+
             {errorMessage ? (
               <div
                 role="alert"
@@ -438,8 +450,8 @@ export function DashboardPage() {
                 {formatDate(selectedBrief.createdAt)}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </>
       )}
     </div>
   );
