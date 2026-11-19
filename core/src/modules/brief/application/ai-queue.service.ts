@@ -76,7 +76,13 @@ export class AIQueueService implements OnModuleInit, OnApplicationShutdown {
 
     this.processing = true;
     try {
-      const job = await this.jobRepo.claimNext();
+      let job;
+      try {
+        job = await this.jobRepo.claimNext();
+      } catch (error: any) {
+        this.logger.error(`Failed to poll AI jobs:`, error.message);
+        return;
+      }
 
       if (!job) {
         return;
