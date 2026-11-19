@@ -1,6 +1,5 @@
 node_modules
 dist
-dist/
 .env
 *.log
 .git
@@ -8,13 +7,4 @@ dist/
 .dockerignore
 README.md
 Dockerfile
-vite.config.ts
-tsconfig.json
-tsconfig.app.json
-tsconfig.node.json
-tailwind.config.js
-postcss.config.js
-index.html
-public/
-.oxlintrc.json
-components.json
+package-lock.json
